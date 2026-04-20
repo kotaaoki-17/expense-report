@@ -815,10 +815,10 @@ async function submitExpense() {
   const gasUrl = localStorage.getItem('gasUrl') || DEFAULT_GAS_URL;
 
   const accountTitle = document.getElementById('accountTitle').value;
-  const dateOfUse = document.getElementById('dateOfUse').value;
-  const amount = document.getElementById('amount').value;
-  const approvedBy = document.getElementById('approvedBy').value;
-  const paidBy = document.getElementById('paidBy').value;
+  const dateOfUse    = document.getElementById('dateOfUse').value;
+  const amount       = document.getElementById('amount').value;
+  const approvedBy   = document.getElementById('approvedBy').value;
+  const paidBy       = document.getElementById('paidBy').value;
 
   if (!accountTitle || !dateOfUse || !amount || !approvedBy || !paidBy) {
     document.getElementById('formError').classList.add('show');
@@ -831,16 +831,16 @@ async function submitExpense() {
     accountTitleJp: accountMap[accountTitle] || '',
     dateOfUse,
     internalExternal: document.getElementById('internalExternal').value,
-    companyName: document.getElementById('companyName').value,
-    repName: document.getElementById('repName').value,
-    numClient: document.getElementById('numClient').value,
-    numArches: document.getElementById('numArches').value,
+    companyName:      document.getElementById('companyName').value,
+    repName:          document.getElementById('repName').value,
+    numClient:        document.getElementById('numClient').value,
+    numArches:        document.getElementById('numArches').value,
     approvedBy,
     paidBy,
-    currency: document.getElementById('currency').value,
+    currency:   document.getElementById('currency').value,
     amount,
-    details: document.getElementById('details').value,
-    imageBase64: uploadedBase64,
+    details:    document.getElementById('details').value,
+    imageBase64:  uploadedBase64 || '',
     imageMimeType: uploadedFile?.type || 'image/jpeg'
   };
 
@@ -849,21 +849,38 @@ async function submitExpense() {
   btn.textContent = '送信中...';
 
   try {
-    await fetch(gasUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // GASはno-corsでPOSTを受け取れないため、GETパラメータで送信
+    // 画像はbase64が大きいため別フィールドとして分割
+    const textPayload = { ...payload, imageBase64: '', imageMimeType: '' };
+    const params = new URLSearchParams({ data: JSON.stringify(textPayload) });
 
-    // Show success (no-cors can't read response, assume success)
+    // テキストデータをGETで送信
+    await fetch(`${gasUrl}?${params.toString()}`, { method: 'GET', mode: 'no-cors' });
+
+    // 画像が存在する場合は別途POSTで送信
+    if (uploadedBase64) {
+      const imagePayload = {
+        action: 'uploadImage',
+        dateOfUse,
+        details: payload.details,
+        imageBase64: uploadedBase64,
+        imageMimeType: payload.imageMimeType
+      };
+      await fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(imagePayload)
+      });
+    }
+
     showSuccess(payload);
     goToStep(2);
 
   } catch (err) {
     btn.disabled = false;
     btn.textContent = '→ SUBMIT';
-    document.getElementById('formError').textContent = '送信に失敗しました。URLを確認してください。';
+    document.getElementById('formError').textContent = '送信に失敗しました。';
     document.getElementById('formError').classList.add('show');
   }
 }
