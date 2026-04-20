@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Expense Report</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #242429;
+    --border: #2e2e36;
+    --accent: #c8f04a;
+    --accent2: #4af0c8;
+    --text: #f0f0f0;
+    --text2: #888899;
+    --danger: #ff4a6e;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .header-sub {
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .step-indicator {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done { background: var(--accent2); }
+
+  /* MAIN */
+  .main { padding: 20px 16px; max-width: 480px; margin: 0 auto; }
+
+  /* STEP PANELS */
+  .step-panel { display: none; }
+  .step-panel.active { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 12px;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(200,240,74,0.04); }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 12px;
+  }
+  .upload-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .upload-sub { font-size: 12px; color: var(--text2); }
+
+  /* PREVIEW */
+  .preview-wrap {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .preview-wrap img {
+    width: 100%;
+    max-height: 260px;
+    object-fit: contain;
+    display: block;
+    background: #000;
+  }
+  .preview-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .preview-change {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: color 0.2s;
+    position: relative;
+  }
+  .preview-change:hover { color: var(--accent); }
+  .preview-change input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  /* ANALYZE BTN */
+  .btn-analyze {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-analyze:hover { background: #d6f55a; transform: translateY(-1px); }
+  .btn-analyze:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; transform: none; }
+
+  /* LOADING */
+  .loading-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    display: none;
+  }
+  .loading-wrap.active { display: block; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    color: var(--text2);
+  }
+
+  /* FORM */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .form-label span.ai-tag {
+    background: rgba(74,240,200,0.15);
+    color: var(--accent2);
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    letter-spacing: 1px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-input.ai-filled { border-color: rgba(74,240,200,0.4); background: rgba(74,240,200,0.04); }
+  .form-select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888899' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* CURRENCY AMOUNT ROW */
+  .amount-row { display: flex; gap: 8px; }
+  .amount-row .form-select { width: 90px; flex-shrink: 0; }
+  .amount-row .form-input { flex: 1; }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* EXTRACTED CARD */
+  .extracted-card {
+    background: rgba(74,240,200,0.06);
+    border: 1px solid rgba(74,240,200,0.2);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .extracted-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .extracted-items { display: flex; flex-wrap: wrap; gap: 8px; }
+  .extracted-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .extracted-chip span { color: var(--text2); margin-right: 4px; }
+
+  /* SUBMIT BTN */
+  .btn-submit {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    padding: 18px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-submit:hover { background: #d6f55a; transform: translateY(-1px); }
+  .btn-submit:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; transform: none; }
+
+  .btn-back {
+    width: 100%;
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.2s;
+  }
+  .btn-back:hover { border-color: var(--text2); color: var(--text); }
+
+  /* SUCCESS */
+  .success-wrap {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .success-icon {
+    width: 72px; height: 72px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 20px;
+    animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes pop {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+  .success-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .success-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .success-details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 20px 0;
+    text-align: left;
+  }
+  .success-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .success-detail-row:last-child { border-bottom: none; }
+  .success-detail-row span:first-child { color: var(--text2); }
+  .btn-new {
+    width: 100%;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-new:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ERROR */
+  .error-msg {
+    background: rgba(255,74,110,0.1);
+    border: 1px solid rgba(255,74,110,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 8px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* CONFIG MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+  .btn-modal-save {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+  .config-icon {
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .config-icon:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">EXPENSE</div>
+    <div class="header-sub">Arches Global</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="step-indicator" id="stepIndicator">
+      <div class="step-dot active" id="dot0"></div>
+      <div class="step-dot" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+    </div>
+    <div class="config-icon" onclick="openConfig()">⚙️</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="step-panel active" id="step0">
+    <div class="section-label">Step 01 — Receipt</div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept="image/*" capture="environment" id="fileInput" onchange="handleFile(this)">
+      <span class="upload-icon">📸</span>
+      <div class="upload-text">領収書を撮影 / 選択</div>
+      <div class="upload-sub">カメラロールから選択またはカメラで撮影</div>
+    </div>
+    <div class="error-msg" id="uploadError">画像を選択してください</div>
+    <button class="btn-analyze" id="analyzeBtn" onclick="analyzeReceipt()" disabled>
+      ✦ AI解析を開始
+    </button>
+    <div class="loading-wrap" id="loadingWrap">
+      <div class="spinner"></div>
+      <div class="loading-text">AIが領収書を読み取り中...</div>
+    </div>
+  </div>
+
+  <!-- STEP 2: FORM -->
+  <div class="step-panel" id="step1">
+    <div class="section-label">Step 02 — Details</div>
+
+    <div class="extracted-card" id="extractedCard" style="display:none">
+      <div class="extracted-title">✦ AI抽出データ</div>
+      <div class="extracted-items" id="extractedItems"></div>
+    </div>
+
+    <!-- Account Title -->
+    <div class="form-group">
+      <label class="form-label">Account Title</label>
+      <select class="form-select" id="accountTitle" onchange="updateAccountJp()">
+        <option value="">選択してください</option>
+        <option value="Entertainment">Entertainment（交際費）</option>
+        <option value="Communication">Communication（通信費）</option>
+        <option value="Supplies">Supplies（消耗品費）</option>
+        <option value="Equipment">Equipment（備品費）</option>
+        <option value="Traveling">Traveling（旅費交通費）</option>
+        <option value="Meals">Meals（食費）</option>
+        <option value="Conference">Conference（会議費）</option>
+        <option value="Other">Other（その他）</option>
+      </select>
+    </div>
+
+    <!-- Date -->
+    <div class="form-group">
+      <label class="form-label">Date of Use <span class="ai-tag">AI</span></label>
+      <input type="date" class="form-input" id="dateOfUse">
+    </div>
+
+    <!-- Conference/Entertainment section -->
+    <div id="confEntSection">
+      <div class="form-group">
+        <label class="form-label">Internal / External</label>
+        <select class="form-select" id="internalExternal">
+          <option value="">選択してください</option>
+          <option value="Internal">Internal</option>
+          <option value="External(client)">External (client)</option>
+          <option value="External(others)">External (others)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name of Company</label>
+        <input type="text" class="form-input" id="companyName" placeholder="e.g. PwC Vietnam">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name of Representatives</label>
+        <input type="text" class="form-input" id="repName" placeholder="e.g. James Smith">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label"># of People (Client)</label>
+          <input type="number" class="form-input" id="numClient" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label"># of People (Arches)</label>
+          <input type="number" class="form-input" id="numArches" min="0" placeholder="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Approved by -->
+    <div class="form-group">
+      <label class="form-label">Approved by</label>
+      <select class="form-select" id="approvedBy">
+        <option value="">選択してください</option>
+        <option value="Shota">Shota</option>
+        <option value="Hiroki">Hiroki</option>
+        <option value="Maria">Maria</option>
+        <option value="Kota">Kota</option>
+      </select>
+    </div>
+
+    <!-- Paid by -->
+    <div class="form-group">
+      <label class="form-label">Paid by</label>
+      <select class="form-select" id="paidBy">
+        <option value="">選択してください</option>
+        <option value="Maria card">Maria card</option>
+        <option value="Maria cash">Maria cash</option>
+        <option value="Company card">Company card</option>
+        <option value="Personal card">Personal card</option>
+        <option value="Cash">Cash</option>
+      </select>
+    </div>
+
+    <!-- Currency + Amount -->
+    <div class="form-group">
+      <label class="form-label">Amount <span class="ai-tag">AI</span></label>
+      <div class="amount-row">
+        <select class="form-select" id="currency">
+          <option value="VND">VND</option>
+          <option value="USD">USD</option>
+          <option value="JPY">JPY</option>
+          <option value="SGD">SGD</option>
+        </select>
+        <input type="text" class="form-input" id="amount" placeholder="0.00">
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div class="form-group">
+      <label class="form-label">Details <span class="ai-tag">AI</span></label>
+      <textarea class="form-textarea" id="details" placeholder="e.g. dinner with client"></textarea>
+    </div>
+
+    <div class="error-msg" id="formError">必須項目を入力してください</div>
+
+    <button class="btn-submit" id="submitBtn" onclick="submitExpense()">
+      → SUBMIT
+    </button>
+    <button class="btn-back" onclick="goBack()">← やり直す</button>
+  </div>
+
+  <!-- STEP 3: SUCCESS -->
+  <div class="step-panel" id="step2">
+    <div class="success-wrap">
+      <div class="success-icon">✓</div>
+      <div class="success-title">SUBMITTED</div>
+      <div class="success-sub">スプレッドシートに自動入力されました</div>
+      <div class="success-details" id="successDetails"></div>
+      <button class="btn-new" onclick="resetApp()">+ 新しい申請を追加</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="configModal" onclick="closeConfigOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙ 設定</div>
+    <div class="form-group">
+      <label class="form-label">GAS Web App URL</label>
+      <input type="url" class="form-input" id="gasUrl" placeholder="https://script.google.com/macros/s/..." value="">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Gemini API Key</label>
+      <input type="password" class="form-input" id="geminiKey" placeholder="AIza...">
+    </div>
+    <button class="btn-modal-save" onclick="saveConfig()">保存</button>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let currentStep = 0;
+let uploadedFile = null;
+let uploadedBase64 = null;
+let extractedData = {};
+
+// ─── CONFIG ──────────────────────────────────────────────
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzyAh04UXLAs2fHmJNcz6fa9b8hGojZtatL5eMkrAsWsVGpzCe89qlRebrWiPKRctVE/exec';
+
+function openConfig() {
+  document.getElementById('gasUrl').value = localStorage.getItem('gasUrl') || DEFAULT_GAS_URL;
+  document.getElementById('geminiKey').value = localStorage.getItem('geminiKey') || '';
+  document.getElementById('configModal').classList.add('show');
+}
+function closeConfigOutside(e) {
+  if (e.target === document.getElementById('configModal')) closeConfig();
+}
+function closeConfig() {
+  document.getElementById('configModal').classList.remove('show');
+}
+function saveConfig() {
+  localStorage.setItem('gasUrl', document.getElementById('gasUrl').value.trim());
+  localStorage.setItem('geminiKey', document.getElementById('geminiKey').value.trim());
+  closeConfig();
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  uploadedFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    uploadedBase64 = e.target.result.split(',')[1];
+    const zone = document.getElementById('uploadZone');
+    zone.innerHTML = `
+      <div class="preview-wrap">
+        <img src="${e.target.result}" alt="Receipt">
+        <div class="preview-badge">✓ LOADED</div>
+        <div class="preview-change">
+          <input type="file" accept="image/*" onchange="handleFile(this)">
+          ↺ 画像を変更
+        </div>
+      </div>
+    `;
+    document.getElementById('analyzeBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── ANALYZE（Gemini APIをブラウザから直接呼ぶ）─────────────
+async function analyzeReceipt() {
+  const geminiKey = localStorage.getItem('geminiKey') || '';
+  if (!geminiKey) {
+    alert('⚙ 設定からGemini API Keyを入力してください');
+    openConfig();
+    return;
+  }
+  if (!uploadedBase64) {
+    document.getElementById('uploadError').classList.add('show');
+    return;
+  }
+  document.getElementById('analyzeBtn').style.display = 'none';
+  document.getElementById('loadingWrap').classList.add('active');
+
+  try {
+    const prompt = `You are an OCR assistant for expense reports. Analyze this receipt image and extract the following information in JSON format only (no markdown, no explanation):
+{
+  "date": "YYYY-MM-DD format if found, else empty string",
+  "amount": "numeric value only, no currency symbols",
+  "currency": "VND or USD or JPY or SGD - infer from context",
+  "merchant": "merchant/store name",
+  "details": "brief description of what was purchased in English"
+}
+If a field cannot be determined, use an empty string.`;
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: uploadedFile.type || 'image/jpeg', data: uploadedBase64 } }
+        ]}]
+      })
+    });
+    const data = await res.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    extractedData = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+    populateForm(extractedData);
+    goToStep(1);
+  } catch (err) {
+    console.error(err);
+    extractedData = {};
+    goToStep(1);
+  }
+}
+
+// ─── POPULATE FORM ────────────────────────────────────────
+function populateForm(data) {
+  const chips = [];
+  if (data.date) {
+    document.getElementById('dateOfUse').value = data.date;
+    document.getElementById('dateOfUse').classList.add('ai-filled');
+    chips.push({ label: 'DATE', value: data.date });
+  }
+  if (data.amount) {
+    document.getElementById('amount').value = data.amount;
+    document.getElementById('amount').classList.add('ai-filled');
+    chips.push({ label: 'AMT', value: data.amount });
+  }
+  if (data.currency) {
+    document.getElementById('currency').value = data.currency;
+    chips.push({ label: 'CCY', value: data.currency });
+  }
+  if (data.details) {
+    document.getElementById('details').value = data.details;
+    document.getElementById('details').classList.add('ai-filled');
+    chips.push({ label: 'DESC', value: data.details.substring(0,20)+(data.details.length>20?'…':'') });
+  }
+  if (chips.length > 0) {
+    document.getElementById('extractedCard').style.display = 'block';
+    document.getElementById('extractedItems').innerHTML = chips.map(c =>
+      `<div class="extracted-chip"><span>${c.label}</span>${c.value}</div>`
+    ).join('');
+  }
+}
+
+// ─── ACCOUNT TITLE JP ─────────────────────────────────────
+const accountMap = {
+  'Entertainment': '交際費',
+  'Communication': '通信費',
+  'Supplies': '消耗品費',
+  'Equipment': '備品費',
+  'Traveling': '旅費交通費',
+  'Meals': '食費',
+  'Conference': '会議費',
+  'Other': 'その他'
+};
+function updateAccountJp() {
+  const val = document.getElementById('accountTitle').value;
+  const isConfEnt = ['Entertainment','Conference','Meals'].includes(val);
+  document.getElementById('confEntSection').style.display = isConfEnt ? 'block' : 'none';
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function goToStep(n) {
+  document.getElementById(`step${currentStep}`).classList.remove('active');
+  document.getElementById(`dot${currentStep}`).classList.remove('active');
+  document.getElementById(`dot${currentStep}`).classList.add('done');
+  currentStep = n;
+  document.getElementById(`step${currentStep}`).classList.add('active');
+  document.getElementById(`dot${currentStep}`).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function goBack() {
+  document.getElementById('loadingWrap').classList.remove('active');
+  document.getElementById('analyzeBtn').style.display = 'flex';
+  document.getElementById(`step${currentStep}`).classList.remove('active');
+  document.getElementById(`dot${currentStep}`).classList.remove('active');
+  currentStep = 0;
+  document.getElementById(`step${currentStep}`).classList.add('active');
+  document.getElementById(`dot${currentStep}`).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ─── SUBMIT ───────────────────────────────────────────────
+async function submitExpense() {
+  const gasUrl = localStorage.getItem('gasUrl') || DEFAULT_GAS_URL;
+
+  const accountTitle = document.getElementById('accountTitle').value;
+  const dateOfUse = document.getElementById('dateOfUse').value;
+  const amount = document.getElementById('amount').value;
+  const approvedBy = document.getElementById('approvedBy').value;
+  const paidBy = document.getElementById('paidBy').value;
+
+  if (!accountTitle || !dateOfUse || !amount || !approvedBy || !paidBy) {
+    document.getElementById('formError').classList.add('show');
+    return;
+  }
+  document.getElementById('formError').classList.remove('show');
+
+  const payload = {
+    accountTitle,
+    accountTitleJp: accountMap[accountTitle] || '',
+    dateOfUse,
+    internalExternal: document.getElementById('internalExternal').value,
+    companyName: document.getElementById('companyName').value,
+    repName: document.getElementById('repName').value,
+    numClient: document.getElementById('numClient').value,
+    numArches: document.getElementById('numArches').value,
+    approvedBy,
+    paidBy,
+    currency: document.getElementById('currency').value,
+    amount,
+    details: document.getElementById('details').value,
+    imageBase64: uploadedBase64,
+    imageMimeType: uploadedFile?.type || 'image/jpeg'
+  };
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+
+  try {
+    await fetch(gasUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // Show success (no-cors can't read response, assume success)
+    showSuccess(payload);
+    goToStep(2);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '→ SUBMIT';
+    document.getElementById('formError').textContent = '送信に失敗しました。URLを確認してください。';
+    document.getElementById('formError').classList.add('show');
+  }
+}
+
+function showSuccess(p) {
+  const fmt = (v) => v || '—';
+  document.getElementById('successDetails').innerHTML = `
+    <div class="success-detail-row"><span>Date</span><span>${fmt(p.dateOfUse)}</span></div>
+    <div class="success-detail-row"><span>Account</span><span>${fmt(p.accountTitle)}</span></div>
+    <div class="success-detail-row"><span>Amount</span><span>${fmt(p.currency)} ${fmt(p.amount)}</span></div>
+    <div class="success-detail-row"><span>Approved by</span><span>${fmt(p.approvedBy)}</span></div>
+    <div class="success-detail-row"><span>Details</span><span>${fmt(p.details)}</span></div>
+  `;
+}
+
+function resetApp() {
+  currentStep = 0;
+  uploadedFile = null;
+  uploadedBase64 = null;
+  extractedData = {};
+
+  ['dot0','dot1','dot2'].forEach((d,i) => {
+    document.getElementById(d).classList.remove('active','done');
+    if (i === 0) document.getElementById(d).classList.add('active');
+  });
+
+  document.getElementById('step1').classList.remove('active');
+  document.getElementById('step2').classList.remove('active');
+  document.getElementById('step0').classList.add('active');
+
+  // Reset upload zone
+  document.getElementById('uploadZone').innerHTML = `
+    <input type="file" accept="image/*" capture="environment" id="fileInput" onchange="handleFile(this)">
+    <span class="upload-icon">📸</span>
+    <div class="upload-text">領収書を撮影 / 選択</div>
+    <div class="upload-sub">カメラロールから選択またはカメラで撮影</div>
+  `;
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').style.display = 'flex';
+  document.getElementById('loadingWrap').classList.remove('active');
+  document.getElementById('extractedCard').style.display = 'none';
+
+  // Reset form
+  ['accountTitle','dateOfUse','internalExternal','companyName','repName',
+   'numClient','numArches','approvedBy','paidBy','amount','details'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('ai-filled'); }
+  });
+  document.getElementById('currency').value = 'VND';
+
+  window.scrollTo(0, 0);
+}
+
+// Init
+updateAccountJp();
+</script>
+</body>
+</html>
