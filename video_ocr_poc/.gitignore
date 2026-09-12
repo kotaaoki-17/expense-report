@@ -1,0 +1,11 @@
+# 秘匿情報
+.env
+
+# 中間成果物・出力（動画・フレーム画像・OCR結果など）
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

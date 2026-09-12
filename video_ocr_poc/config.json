@@ -1,0 +1,36 @@
+{
+  "download": {
+    "max_height": 480,
+    "format_fallback": "best"
+  },
+  "frames": {
+    "scene_threshold": 0.3,
+    "max_gap_sec": 2.0,
+    "crop": {
+      "x_ratio": 0.0,
+      "y_ratio": 0.70,
+      "w_ratio": 0.70,
+      "h_ratio": 0.30
+    },
+    "phash_distance_threshold": 6,
+    "min_edge_density": 0.004,
+    "max_frames": 500
+  },
+  "ocr": {
+    "provider": null,
+    "language_hints": ["ja"],
+    "timeout_sec": 30,
+    "max_retries": 2
+  },
+  "structurize": {
+    "use_llm_fallback": true,
+    "min_rule_confidence": 0.7,
+    "llm_max_calls": 100
+  },
+  "dedupe": {
+    "name_similarity_threshold": 0.8
+  },
+  "output": {
+    "formats": ["json", "csv"]
+  }
+}

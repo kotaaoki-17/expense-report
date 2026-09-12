@@ -1,0 +1,16 @@
+# 動画ダウンロード（CLI としても Python ライブラリとしても利用可能）
+yt-dlp>=2024.1.0
+
+# 画像処理・フレーム間の類似度判定
+pillow>=10.0.0
+imagehash>=4.3.1
+opencv-python>=4.8.0      # テロップらしさ（エッジ密度）判定に使用。未導入でも PIL にフォールバックします
+
+# OCR / LLM API 呼び出し
+requests>=2.31.0
+
+# 出力（CSV）
+pandas>=2.0.0
+
+# .env 読み込み
+python-dotenv>=1.0.0
