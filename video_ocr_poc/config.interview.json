@@ -1,0 +1,38 @@
+{
+  "_comment": "画面左側に『会社名 / 役職 / 氏名』が縦に並ぶインタビュー動画向けのプリセット。python main.py --url ... --config config.interview.json で使用する",
+  "download": {
+    "max_height": 720
+  },
+  "frames": {
+    "scene_threshold": 0.3,
+    "max_gap_sec": 3.0,
+    "crop": {
+      "x_ratio": 0.0,
+      "y_ratio": 0.15,
+      "w_ratio": 0.40,
+      "h_ratio": 0.30
+    },
+    "phash_distance_threshold": 6,
+    "min_edge_density": 0.004,
+    "max_frames": 200
+  },
+  "ocr": {
+    "provider": null,
+    "language_hints": ["ja", "en"],
+    "tesseract_lang": "jpn+eng",
+    "tesseract_psm": 6,
+    "timeout_sec": 30,
+    "max_retries": 2
+  },
+  "structurize": {
+    "use_llm_fallback": true,
+    "min_rule_confidence": 0.7,
+    "llm_max_calls": 100
+  },
+  "dedupe": {
+    "name_similarity_threshold": 0.8
+  },
+  "output": {
+    "formats": ["json", "csv"]
+  }
+}

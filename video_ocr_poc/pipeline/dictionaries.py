@@ -69,6 +69,13 @@ COMPANY_SUFFIXES = (
     "公団",
 )
 
+# 英語表記の法人格（外資系・スタートアップのテロップで頻出）。正規表現として使用する
+ENGLISH_COMPANY_PATTERN = (
+    r"[A-Z][A-Za-z0-9&\.\-]*(?:\s+[A-Z][A-Za-z0-9&\.\-]*){0,3}\s*"
+    r"(?:Inc\.?|Corp\.?|Corporation|Co\.,?\s*Ltd\.?|Ltd\.?|LLC|LLP|PLC|K\.K\.|GmbH|"
+    r"Pte\.?\s*Ltd\.?|Holdings|Group|Partners|Technologies|Labs|University)"
+)
+
 # 行政機関（自治体・官公庁）の語尾
 GOVERNMENT_SUFFIXES = (
     "都",
@@ -201,6 +208,24 @@ COMMON_SURNAMES = (
     "杉山", "増田", "小島", "平野", "大塚", "千葉", "久保", "松井", "岩崎", "桜井",
     "北村", "今村", "岡村", "野村", "松村", "川村", "吉村", "大村", "藤村", "志村",
     "植村", "奥村", "沢村", "河村", "西村", "町田", "市川", "市原", "大原", "中原",
+)
+
+# 英語表記の役職（外資系・スタートアップのテロップで頻出）
+# 正規表現として使うため、長いものが先にマッチするよう並べている
+ENGLISH_TITLE_PATTERNS = (
+    r"Head\s+of\s+[A-Z][A-Za-z&/\.\-]*(?:\s+[A-Z][A-Za-z&/\.\-]*){0,3}",
+    r"(?:Chief|Senior|Executive|Vice|General|Managing|Deputy|Associate|Assistant|Global|Regional)"
+    r"\s+[A-Z][A-Za-z]*(?:\s+Officer)?",
+    r"(?:Co-?Founder|Founder|President|Chairman|Chairperson|Director|Manager|Partner|Principal|"
+    r"Consultant|Engineer|Researcher|Analyst|Producer|Editor|Specialist|Evangelist|Lead)",
+    r"(?:CEO|COO|CFO|CTO|CMO|CIO|CHRO|CISO|CDO|CPO|VP|SVP|EVP|MD)",
+)
+
+# 英語役職の一部として現れる語（氏名判定から除外するために使用）
+ENGLISH_TITLE_WORDS = (
+    "Head", "Chief", "Officer", "President", "Director", "Manager", "Partner", "Founder",
+    "Engineer", "Consultant", "Researcher", "Analyst", "Producer", "Editor", "Specialist",
+    "CEO", "COO", "CFO", "CTO", "CMO", "CIO", "CHRO", "CISO", "CDO", "CPO", "VP", "SVP", "EVP",
 )
 
 # テロップに混ざりやすいノイズ（除去対象）

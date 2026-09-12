@@ -20,6 +20,8 @@ from typing import Any, Iterable
 
 from .dictionaries import (
     COMMON_SURNAMES,
+    ENGLISH_COMPANY_PATTERN,
+    ENGLISH_TITLE_PATTERNS,
     COMPANY_PREFIXES,
     COMPANY_SUFFIXES,
     DEPARTMENT_SUFFIXES,
@@ -39,7 +41,9 @@ _KANJI = r"一-龥々ヶ"
 _KANA = r"ぁ-んァ-ヴー"
 
 _SORTED_TITLES = tuple(sorted(TITLES, key=len, reverse=True))
-_TITLE_RE = re.compile("|".join(re.escape(title) for title in _SORTED_TITLES))
+_TITLE_RE = re.compile(
+    "|".join([*(re.escape(title) for title in _SORTED_TITLES), *ENGLISH_TITLE_PATTERNS])
+)
 
 _COMPANY_PATTERNS = [
     # 株式会社◯◯ のような接頭辞型
@@ -56,6 +60,8 @@ _COMPANY_PATTERNS = [
     re.compile(
         r"[" + _KANJI + r"]{1,6}?(?:" + "|".join(re.escape(s) for s in GOVERNMENT_SUFFIXES) + r")"
     ),
+    # ABC Inc. / XYZ Pte Ltd のような英語表記
+    re.compile(ENGLISH_COMPANY_PATTERN),
 ]
 
 _DEPARTMENT_RE = re.compile(

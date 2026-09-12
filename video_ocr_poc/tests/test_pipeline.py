@@ -53,6 +53,29 @@ class RuleBasedExtractionTest(unittest.TestCase):
         self.assertEqual(result.company, "東京都")
         self.assertEqual(result.name, "山田太郎")
 
+    def test_english_title_and_japanese_company(self):
+        # 「アーチーズ株式会社 / Head of HR / 和田 直子」のようなインタビュー動画のテロップ
+        result = rule_based_extract("アーチーズ株式会社\nHead of HR\n和田 直子")
+        self.assertEqual(result.company, "アーチーズ株式会社")
+        self.assertEqual(result.department, "Head of HR")
+        self.assertEqual(result.name, "和田 直子")
+
+    def test_english_company_name(self):
+        result = rule_based_extract("Global Tech Pte Ltd Managing Director 佐々木 玲奈")
+        self.assertEqual(result.company, "Global Tech Pte Ltd")
+        self.assertEqual(result.department, "Managing Director")
+        self.assertEqual(result.name, "佐々木 玲奈")
+
+    def test_japanese_and_english_mixed_title(self):
+        result = rule_based_extract("株式会社サンプル物流 執行役員 CTO 山本 健太")
+        self.assertEqual(result.company, "株式会社サンプル物流")
+        self.assertIn("CTO", result.department)
+        self.assertEqual(result.name, "山本 健太")
+
+    def test_guest_label_is_ignored(self):
+        result = rule_based_extract("本日のゲスト アーチーズ株式会社 Head of HR 和田 直子")
+        self.assertEqual(result.name, "和田 直子")
+
     def test_name_survives_trailing_ocr_noise(self):
         # OCRが拾った末尾のノイズ（「| 園」）を氏名と誤認しないこと
         result = rule_based_extract("東京都 都市整備局 計画課長 山田 太朗 | 園")
