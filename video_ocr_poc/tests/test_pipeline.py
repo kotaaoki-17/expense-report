@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pipeline.dedupe import dedupe, normalize_name  # noqa: E402
 from pipeline.extract_frames import build_crop_filter, build_select_filter  # noqa: E402
 from pipeline.llm import LLMClient  # noqa: E402
+from pipeline.ocr import TesseractOCRProvider  # noqa: E402
 from pipeline.outputs import write_outputs  # noqa: E402
 from pipeline.structurize import StructuredRecord, normalize_text, rule_based_extract  # noqa: E402
 
@@ -51,6 +52,11 @@ class RuleBasedExtractionTest(unittest.TestCase):
         result = rule_based_extract("東京都都市整備局計画課長山田太郎")
         self.assertEqual(result.company, "東京都")
         self.assertEqual(result.name, "山田太郎")
+
+    def test_name_survives_trailing_ocr_noise(self):
+        # OCRが拾った末尾のノイズ（「| 園」）を氏名と誤認しないこと
+        result = rule_based_extract("東京都 都市整備局 計画課長 山田 太朗 | 園")
+        self.assertEqual(result.name, "山田 太朗")
 
     def test_unextractable_text(self):
         result = rule_based_extract("近所の住民")
@@ -95,6 +101,10 @@ class DedupeTest(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].company, "B社")
 
+    def test_empty_records_are_dropped(self):
+        empty = StructuredRecord(video_id="V1", timestamp_sec=1.0, raw_text="")
+        self.assertEqual(dedupe([empty]), [])
+
     def test_records_with_error_are_skipped(self):
         broken = self._record(1.0, "山田 太郎", 0.9)
         broken.error = "ocr: timeout"
@@ -113,6 +123,35 @@ class LLMResponseParsingTest(unittest.TestCase):
 
     def test_unparsable_response_returns_none(self):
         self.assertIsNone(LLMClient._parse_json("JSONではない応答"))
+
+
+class TesseractParsingTest(unittest.TestCase):
+    TSV = "\t".join(
+        ["level", "page_num", "block_num", "par_num", "line_num", "word_num",
+         "left", "top", "width", "height", "conf", "text"]
+    ) + "\n" + "\n".join(
+        [
+            "5\t1\t1\t1\t1\t1\t51\t14\t88\t29\t93.6\t東京都",
+            "5\t1\t1\t1\t1\t2\t155\t14\t50\t29\t95.5\t都市整備局",
+            "5\t1\t1\t1\t2\t1\t51\t62\t61\t31\t96.6\t計画課長",
+            "5\t1\t1\t1\t2\t2\t188\t63\t59\t29\t93.1\t山田",
+            "5\t1\t1\t1\t2\t3\t258\t62\t61\t31\t90.1\t太郎",
+            "5\t1\t1\t1\t3\t1\t428\t114\t168\t30\t0.0\thh",
+        ]
+    )
+    TXT = "東京都 都市整備局\n計画課長 山田 太郎\n"
+
+    def test_uses_txt_for_raw_text(self):
+        # 日本語では tsv が語単位に割れるため、空白を保った txt 側を raw_text に使う
+        parsed = TesseractOCRProvider._parse(self.TXT, self.TSV)
+        self.assertEqual(parsed["raw_text"], "東京都 都市整備局\n計画課長 山田 太郎")
+        self.assertGreater(parsed["confidence"], 0.9)
+
+    def test_low_confidence_noise_is_dropped(self):
+        lines = TesseractOCRProvider._parse_tsv(self.TSV)
+        self.assertEqual(len(lines), 2)
+        self.assertNotIn("hh", [line["text"] for line in lines])
+        self.assertEqual(lines[0]["bounding_box"][0], [51, 14])
 
 
 class FfmpegFilterTest(unittest.TestCase):

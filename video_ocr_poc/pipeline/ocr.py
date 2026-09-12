@@ -115,6 +115,97 @@ class MockOCRProvider(OCRProvider):
         }
 
 
+class TesseractOCRProvider(OCRProvider):
+    """ローカルの Tesseract OCR（APIキー不要）。
+
+    クラウドAPIのキーが用意できない環境で、実画像を使って精度を確認するための選択肢。
+    日本語データ（`tesseract-ocr-jpn`）のインストールが必要。
+    """
+
+    name = "tesseract"
+
+    # 信頼度がこれ未満の語は背景ノイズとみなして捨てる
+    MIN_WORD_CONFIDENCE = 10.0
+
+    def __init__(self, lang: str = "jpn", psm: int = 6, binary: str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.lang = lang
+        self.psm = psm
+        self.binary = binary or os.environ.get("TESSERACT_CMD", "tesseract")
+
+    def annotate(self, image_path: Path) -> dict[str, Any]:
+        import subprocess
+        import tempfile
+
+        # txt と tsv を1回の実行で同時に出力する。
+        # 日本語では tsv が語単位に分割され本来の空白が復元できないため、
+        # raw_text は txt 側を使い、tsv は信頼度と bounding box の取得に使う。
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "out"
+            cmd = [self.binary, str(image_path), str(base), "-l", self.lang, "--psm", str(self.psm), "txt", "tsv"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout_sec, check=False)
+            if result.returncode != 0:
+                raise OCRError(f"tesseract の実行に失敗しました: {result.stderr.strip()[:300]}")
+            text_output = base.with_suffix(".txt").read_text(encoding="utf-8", errors="replace")
+            tsv_output = base.with_suffix(".tsv").read_text(encoding="utf-8", errors="replace")
+        return self._parse(text_output, tsv_output)
+
+    @classmethod
+    def _parse(cls, text_output: str, tsv_output: str) -> dict[str, Any]:
+        text_lines = [line.strip() for line in text_output.splitlines() if line.strip()]
+        tsv_lines = cls._parse_tsv(tsv_output)
+
+        # txt と tsv の行数が一致する場合は、空白を保った txt 側の文字列を採用する
+        if len(text_lines) == len(tsv_lines):
+            for line, text in zip(tsv_lines, text_lines):
+                line["text"] = text
+            raw_text = "\n".join(text_lines)
+        else:
+            raw_text = "\n".join(text_lines) if text_lines else "\n".join(line["text"] for line in tsv_lines)
+
+        confidences = [line["confidence"] for line in tsv_lines]
+        confidence = sum(confidences) / len(confidences) if confidences else (1.0 if raw_text else 0.0)
+        return {"raw_text": raw_text.strip(), "lines": tsv_lines, "confidence": round(confidence, 3)}
+
+    @classmethod
+    def _parse_tsv(cls, tsv: str) -> list[dict[str, Any]]:
+        """tsv出力を行単位（text, confidence, bounding_box）に集約する。"""
+        grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+        for row in tsv.splitlines()[1:]:  # 1行目はヘッダ
+            columns = row.split("\t")
+            if len(columns) < 12:
+                continue
+            text = columns[11].strip()
+            try:
+                confidence = float(columns[10])
+                left, top, width, height = (int(columns[i]) for i in range(6, 10))
+            except ValueError:
+                continue
+            if not text or confidence < cls.MIN_WORD_CONFIDENCE:
+                continue
+            key = (columns[2], columns[3], columns[4])  # block / paragraph / line
+            grouped.setdefault(key, []).append(
+                {"text": text, "confidence": confidence, "left": left, "top": top, "width": width, "height": height}
+            )
+
+        lines: list[dict[str, Any]] = []
+        for words in grouped.values():
+            words.sort(key=lambda word: word["left"])
+            line_confidences = [word["confidence"] for word in words]
+            x1 = min(word["left"] for word in words)
+            y1 = min(word["top"] for word in words)
+            x2 = max(word["left"] + word["width"] for word in words)
+            y2 = max(word["top"] + word["height"] for word in words)
+            lines.append(
+                {
+                    "text": "".join(word["text"] for word in words),
+                    "confidence": round(sum(line_confidences) / len(line_confidences) / 100.0, 3),
+                    "bounding_box": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                }
+            )
+        return lines
+
+
 class GoogleVisionOCRProvider(OCRProvider):
     """Google Cloud Vision API (DOCUMENT_TEXT_DETECTION)。"""
 
@@ -297,6 +388,13 @@ def create_provider(provider_name: str | None = None, ocr_config: dict[str, Any]
             logger.warning("AZURE_VISION_ENDPOINT / AZURE_VISION_KEY が未設定のため mock OCR を使用します")
             return MockOCRProvider(**kwargs)
         return AzureReadOCRProvider(azure_endpoint, azure_key, **kwargs)
+
+    if name == "tesseract":
+        return TesseractOCRProvider(
+            lang=ocr_config.get("tesseract_lang", os.environ.get("TESSERACT_LANG", "jpn")),
+            psm=int(ocr_config.get("tesseract_psm", 6)),
+            **kwargs,
+        )
 
     if name != "mock":
         logger.warning("未知のOCRプロバイダ '%s' が指定されました。mock を使用します", name)

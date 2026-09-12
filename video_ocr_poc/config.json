@@ -19,6 +19,8 @@
   "ocr": {
     "provider": null,
     "language_hints": ["ja"],
+    "tesseract_lang": "jpn",
+    "tesseract_psm": 6,
     "timeout_sec": 30,
     "max_retries": 2
   },

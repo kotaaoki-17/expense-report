@@ -36,6 +36,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "ocr": {
         "provider": None,  # None の場合は環境変数から自動判定
         "language_hints": ["ja"],
+        "tesseract_lang": "jpn",
+        "tesseract_psm": 6,
         "timeout_sec": 30,
         "max_retries": 2,
     },

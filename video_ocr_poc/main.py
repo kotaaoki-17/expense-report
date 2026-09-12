@@ -46,7 +46,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=f"実行するStep（カンマ区切り）。選択肢: {','.join(ALL_STEPS)}",
     )
     parser.add_argument("--force", action="store_true", help="キャッシュを無視して全Stepを再実行する")
-    parser.add_argument("--ocr-provider", choices=["mock", "google", "azure"], help="OCRプロバイダを明示指定する")
+    parser.add_argument("--ocr-provider", choices=["mock", "google", "azure", "tesseract"], help="OCRプロバイダを明示指定する")
     parser.add_argument("--no-llm", action="store_true", help="LLMフォールバックを無効にする")
     parser.add_argument(
         "--delete-video",

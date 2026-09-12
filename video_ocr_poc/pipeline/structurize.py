@@ -175,44 +175,56 @@ def extract_company(text: str) -> tuple[str, tuple[int, int] | None]:
 def extract_name(text: str) -> tuple[str, tuple[int, int] | None, bool]:
     """氏名を抽出し、(値, 範囲, 候補が複数あったか) を返す。
 
-    テロップは「組織 部署 役職 姓 名」の語順が多いため、
-    空白区切りのトークン列から「姓+名」のペアを探すことを最優先する。
+    テロップは「組織 部署 役職 姓 名」の語順が多いため、空白区切りのトークン列から
+    「姓+名」のペアを探す。OCRノイズが末尾に紛れ込むことがあるため、単純な後方優先ではなく
+    「役職語の直後か」「頻出姓か」などでスコアリングして選ぶ。
     """
-    candidates: list[tuple[str, tuple[int, int]]] = []
+    scored: list[tuple[float, str, tuple[int, int]]] = []
+    tokens = _tokenize(text)
 
     # 1) 空白区切りの「姓 名」ペア
-    for left, right in zip(_tokenize(text), _tokenize(text)[1:]):
+    for index, (left, right) in enumerate(zip(tokens, tokens[1:])):
         if not (_is_name_token(left[0]) and _is_name_token(right[0])):
             continue
-        candidates.append((f"{left[0]} {right[0]}", (left[1], right[2])))
+        if len(left[0]) == 1 and len(right[0]) == 1:
+            continue  # 「| 園」のような1文字同士のノイズを除外
+        score = 0.2 * index  # 後方をわずかに優先
+        if index > 0 and _TITLE_RE.search(tokens[index - 1][0]):
+            score += 3.0  # 役職語の直後は氏名である可能性が高い
+        if left[0] in _SURNAME_SET:
+            score += 2.0
+        if len(left[0]) >= 2 and len(right[0]) >= 2:
+            score += 1.0
+        scored.append((score, f"{left[0]} {right[0]}", (left[1], right[2])))
 
     # 2) 「ジョン・スミス」のようなカタカナ氏名
-    if not candidates:
+    if not scored:
         for match in _KATAKANA_NAME_RE.finditer(text):
             if _looks_like_name(match.group(0)):
-                candidates.append((match.group(0).strip(), match.span()))
+                scored.append((1.0, match.group(0).strip(), match.span()))
 
     # 3) 役職語の直後に続く漢字列（空白が無いテロップ向け）
-    if not candidates:
+    if not scored:
         for match in _TITLE_NAME_RE.finditer(text):
             if _looks_like_name(match.group(1)):
-                candidates.append((match.group(1).strip(), match.span(1)))
+                scored.append((1.0, match.group(1).strip(), match.span(1)))
 
     # 4) 末尾の漢字2〜5文字が頻出姓で始まる場合
-    if not candidates:
+    if not scored:
         tail = re.search(r"([" + _KANJI + r"]{2,5})\s*$", text)
         if tail and _looks_like_name(tail.group(1)):
             value = tail.group(1)
             if any(value.startswith(surname) for surname in COMMON_SURNAMES):
-                candidates.append((value, tail.span(1)))
+                scored.append((1.0, value, tail.span(1)))
 
-    if not candidates:
+    if not scored:
         return "", None, False
 
-    unique = {value for value, _ in candidates}
-    # テロップでは氏名が最後に来るため、最も後方の候補を採用
-    value, span = max(candidates, key=lambda item: item[1][0])
-    return value, span, len(unique) > 1
+    scored.sort(key=lambda item: item[0], reverse=True)
+    best_score, value, span = scored[0]
+    # 僅差の別候補がある場合は「候補が複数」とみなし、LLMフォールバックに回す
+    ambiguous = any(other_value != value and best_score - score < 1.0 for score, other_value, _ in scored[1:])
+    return value, span, ambiguous
 
 
 def extract_department(text: str) -> str:

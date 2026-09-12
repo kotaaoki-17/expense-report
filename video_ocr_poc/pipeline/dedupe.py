@@ -66,8 +66,13 @@ def dedupe(
     """構造化レコードを名寄せして代表レコードのリストを返す。"""
     groups: list[dict[str, Any]] = []
 
+    skipped_empty = 0
     for record in records:
         if getattr(record, "error", None):
+            continue
+        # テロップが写っていなかったフレーム（3項目とも空）は出力対象外
+        if not any((getattr(record, key, "") or "").strip() for key in ("company", "department", "name")):
+            skipped_empty += 1
             continue
         name = normalize_name(getattr(record, "name", ""))
         target: dict[str, Any] | None = None
@@ -124,5 +129,10 @@ def dedupe(
         deduped.append(merged)
 
     deduped.sort(key=lambda record: record.timestamp_sec)
-    logger.info("名寄せ完了: %d 件 → %d 件", sum(len(g["members"]) for g in groups), len(deduped))
+    logger.info(
+        "名寄せ完了: %d 件 → %d 件 (テロップ無しとして除外 %d 件)",
+        sum(len(group["members"]) for group in groups),
+        len(deduped),
+        skipped_empty,
+    )
     return deduped

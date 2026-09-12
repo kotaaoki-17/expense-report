@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | `ffmpeg` | シーンチェンジ検出・フレーム抽出・クロップ | `brew install ffmpeg` / `apt install ffmpeg` |
 | `yt-dlp` | 動画ダウンロード | `pip install yt-dlp`（下記の requirements に同梱） |
+| `tesseract`（任意） | APIキー無しでローカルOCRを試す場合 | `brew install tesseract tesseract-lang` / `apt install tesseract-ocr tesseract-ocr-jpn` |
 
 ### 1-2. Python
 
@@ -40,16 +41,19 @@ cp .env.example .env
 
 | 環境変数 | 用途 |
 | --- | --- |
-| `OCR_PROVIDER` | `mock` / `google` / `azure`。未設定ならキーの有無から自動判定し、無ければ `mock` |
+| `OCR_PROVIDER` | `mock` / `google` / `azure` / `tesseract`。未設定ならキーの有無から自動判定し、無ければ `mock` |
 | `GOOGLE_VISION_API_KEY` | Google Cloud Vision API を使う場合 |
 | `AZURE_VISION_ENDPOINT` / `AZURE_VISION_KEY` | Azure Computer Vision (Read API) を使う場合 |
 | `ANTHROPIC_API_KEY` | Step 4 のLLMフォールバック（Claude API）。未設定ならルールベース結果のみで継続 |
 | `ANTHROPIC_MODEL` | 省略時は `claude-sonnet-5` |
+| `TESSERACT_CMD` / `TESSERACT_LANG` | ローカルOCR（`tesseract`）を使う場合。省略時は `tesseract` / `jpn` |
 
 `.env` は `.gitignore` 済みです。**APIキーをコミットしないでください。**
 
 > **キーが1つも無い状態でも動きます。** OCRは `mock`（決定的なダミーテロップを返す）に切り替わり、
 > Step 1〜6 の疎通確認ができます。
+> 実画像で精度を見たいがクラウドAPIのキーがまだ無い、という段階では
+> `--ocr-provider tesseract`（ローカルOCR）が使えます。
 
 ---
 
@@ -68,7 +72,7 @@ python main.py --url "https://www.youtube.com/watch?v=XXXXXXXX"
 | `--video-id XXXX` | ダウンロード済み動画を指定して再実行（`--url` の代わり。ネットワーク不要） |
 | `--steps frames,ocr` | 実行するStepを限定（`download,frames,ocr,structurize,dedupe,output`） |
 | `--force` | キャッシュを無視して全Stepを再実行 |
-| `--ocr-provider google` | OCRプロバイダを明示指定 |
+| `--ocr-provider google` | OCRプロバイダを明示指定（`mock` / `google` / `azure` / `tesseract`） |
 | `--no-llm` | LLMフォールバックを無効化（ルールベースのみ） |
 | `--delete-video` | 処理後に動画ファイルを削除（検証目的の一時利用向け） |
 | `--config path.json` / `--data-dir path` | 設定ファイル・データ保存先の差し替え |
@@ -117,7 +121,7 @@ python tools/preview_crop.py --video data/raw/XXXX.mp4 --seconds 12 30 61
 ```
 
 ### Step 3: OCR一次抽出（`pipeline/ocr.py`）
-Google Cloud Vision / Azure Read API / Mock を同じインタフェースで切り替えます。
+Google Cloud Vision / Azure Read API / ローカル Tesseract / Mock を同じインタフェースで切り替えます。
 生テキスト・信頼度・bounding box を `./data/ocr_raw/{video_id}.jsonl` にそのまま保存します。
 1フレームの失敗は `error` フィールドに記録して次のフレームへ進みます（全体は止まりません）。
 
@@ -174,14 +178,30 @@ Google Cloud Vision / Azure Read API / Mock を同じインタフェースで切
 | `frames.phash_distance_threshold` | `6` | 大きくすると間引きが強くなる（取りこぼしも増える） |
 | `frames.min_edge_density` | `0.004` | テロップが無いフレームの足切り |
 | `frames.max_frames` | `500` | 1動画あたりのOCR上限（コストの保険） |
-| `ocr.provider` | `null` | `google` / `azure` / `mock`。`null` は自動判定 |
+| `ocr.provider` | `null` | `google` / `azure` / `tesseract` / `mock`。`null` は自動判定 |
+| `ocr.tesseract_lang` / `ocr.tesseract_psm` | `jpn` / `6` | ローカルOCR（tesseract）の言語とページ分割モード |
 | `structurize.min_rule_confidence` | `0.7` | これ未満のフレームをLLMフォールバックに回す |
 | `structurize.llm_max_calls` | `100` | LLM呼び出し回数の上限 |
 | `dedupe.name_similarity_threshold` | `0.8` | 名寄せの類似度しきい値 |
 
 ---
 
-## 5. テスト
+## 5. 動作確認の記録
+
+実在の動画が使えない環境向けに、ffmpeg で生成した「ニュース番組風」の検証用動画
+（854x480 / 54秒 / 背景が動く映像の下部にテロップ、同一人物が2回登場）で
+Step 2〜6 を通しで確認しています（OCRはローカル Tesseract で実施）。
+
+| 指標 | 結果 |
+| --- | --- |
+| 候補フレーム | 27枚（シーンチェンジ + 2秒ごとのサンプリング） |
+| OCRに投げたフレーム | 16枚（pHashで11枚を間引き） |
+| 名寄せ後のレコード | 4件（動画に登場する4人と一致。同一人物の2回登場は `occurrences: 2` に集約） |
+| 処理時間 | 約17秒（54秒の動画・ローカルOCR） |
+
+会社名・部署名・氏名の分離はすべて正しく、差異はOCR自体の誤認識（`太郎` → `太朗` など）のみでした。
+
+## 6. テスト
 
 ネットワーク・APIキー不要のユニットテストが入っています。
 
@@ -191,7 +211,7 @@ python -m unittest discover -s tests -v
 
 ---
 
-## 6. 注意事項
+## 7. 注意事項
 
 - YouTube動画のダウンロード・保存はYouTube利用規約に抵触する可能性があります。
   本PoCは**検証目的の一時利用**に限定し、動画ファイルは検証後に削除する運用を前提としてください
